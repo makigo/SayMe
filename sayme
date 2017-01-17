@@ -1,0 +1,496 @@
+#!/bin/bash
+#
+# Script - "SayMe"
+# Born - 05.01.2017 by Makigo [iMakhonin]
+# It works on Linux/OpenWRT/Raspberry Pi
+#
+###
+
+#set -e
+
+NAME=Sayme
+APPNAME=sayme
+VERSION=0.5b
+RELEASE=17.01.2017
+EMAIL=work.makhonin@gmail.com
+
+# Foemat YYYYMMDDHHmm.ss-dow-doy 
+# dow = day of week. doy = day of year
+
+DATE=`date '+%Y%m%d%H%M.%S-%u-%j'`
+yy=${DATE:0:4}                      # год (1970..XXXX)
+mo=${DATE:4:2}                      # месяц (01..12)
+dd=${DATE:6:2}                      # день (начиная с 01)
+hh=${DATE:8:2}                      # час (00..23)
+mm=${DATE:10:2}                     # минуты (00..59)
+ss=${DATE:13:2}                     # секунды (00..59)
+ww=${DATE:16:1}                     # день недели (1..7)
+dy=${DATE:18:3}                     # день в году (001..366)
+
+path=/home/lib/sounds/mp3_128		# Библиотека звуков
+player=madplay                      # Плеер (он же зависимость приложения)
+opt_1="-Q"                          # "Тихий" режим
+opt_2="-Q -A -6"                    # "Тихий" режим, громкость  -6 dB
+opt_3="-Q -A +6"                    # "Тихий" режим, громкость  +6 dB
+opt_4="-Q -A -16"                   # "Тихий" режим, громкость -16 dB
+
+s_begin=at-tone-time-exactly
+s_hour=hour
+s_hours=hours
+s_hours_a=hours-a
+s_min=minute
+s_mins=minutes
+s_mins_i=minutes-i
+s_sec=seconds
+s_secs=seconds
+s_secs_i=seconds
+s_beep=beep
+s_signal=signal
+s_today=today
+s_silence=silence
+type=mp3
+
+p_now="Текущее время:"
+p_today="Сегодня:"
+p_signal="Длинный сигнал..."
+p_beep="Короткий сигнал..."
+
+DEP_1="bash"
+DEP_2="date"
+DEP_3="$player"
+DEP_4="sed"
+
+### ─ ┬ ├ ≥ ┤ ▒ ° ± ┘ ┐ ┌ ≤ │ ┴ ┼ └ ###
+
+
+### Функции
+check_dep() {
+for deps in $DEP_1 $DEP_2 $DEP_3 $DEP_4
+do
+    if type $deps &>/dev/null
+    then
+        echo -e "│    OK $deps\t Установлено \t│"
+    else
+        dep_app=$deps
+        echo -e "│ Error $deps\t Не установлено │"
+    fi
+done
+echo -ne "└───────────────────────────────┘\n"
+}
+
+depends() {
+  check_dep &>/dev/null
+  if [ "$dep_app" != "" ]; then
+    echo "*** Внимание! Для полноценной работы данного приложения"
+    echo "    Вам потребуется установить зависимость \"$dep_app\""
+    exit 1
+  fi
+}
+
+usage() {
+  echo "Используйте: $APPNAME --help"
+  exit 1
+}
+
+print_version() {
+  echo "$NAME v$VERSION, Copyright (C) 2017, iMakgonin aka makigo. "
+}
+
+print_help() {
+  print_version
+  echo "Использование: $APPNAME [КОМАНДА]..."
+  echo
+  echo "Команды:"
+  echo
+  echo "  Голосовые:"
+  echo "  --time            Время  - текущий час и минута (формат 24 ч.)"
+  echo "  --hour            Время  - только текущий час. (формат 24 ч.)"
+  echo "  --min             Время  - только текущие минута."
+  echo "  --sec             Время  - только текущие секунда."
+  echo "  --day             Дата   - число и месяц."
+  echo "  --dow             Дата   - день недели."
+  echo "  --date            Дата   - день недели, число и месяц."
+  echo
+  echo "  --all             Полные данные."
+  echo "                    Время  - часы и минуты."
+  echo "                    Дата   - день недели, число и месяц."
+  echo
+  echo "  Дополнительные:"
+  echo "  -b, --beep        Играет короткий сигнал."
+  echo "  -s, --signal      Играет длинный сигнал оповещения."
+  echo "  -g, --greet       В начале играет фраза \"Текущее время\"."
+  echo "  -q, --quiet       Только текст, без голосового оповещения."
+  echo "                    Используется исключительно перед голосовыми."
+  echo 
+  echo "  Информационные:"
+  echo "  -i, --info        Вывести расшифрованные данные по текущей дате."
+  echo "  -d, --deps        Проверить зависимости, те приложения без которых данное не будет работать."
+  echo
+  echo "  -h, --help        Показать эту справку и выйти."
+  echo "  -v, --version     Показать информацию о версии и выйти."
+  echo
+  echo
+  echo "  Примеры:"
+  echo "  $APPNAME --hour --min     Комбинированые команды."
+  echo "  $APPNAME -q --hour        Команда выводит данные о текущем часе только в консоль терминала."
+  echo "  $APPNAME -b --hour        Перед сообщением часа играет звуковой сигнал."
+  echo
+  echo "Об ошибках в \"$NAME\" сообщайте по адресу <$EMAIL>. Дата релиза: $RELEASE."
+  exit 1
+}
+
+print_dep() {
+  echo " Проверка зависимостей к $NAME"
+  echo -ne "┌───────────────────────────────┐\n"
+  check_dep
+}
+
+print_info() {
+  echo -ne " Данные по текущему времени/дате \n"
+  echo -ne "┌───────────────────────────────┐\n"
+  echo -ne "│    Час ................ $hh    │\n"
+  echo -ne "│    Минута ............. $mm    │\n"
+  echo -ne "│    Секунда ............ $ss    │\n"
+  echo -ne "│    День ............... $dd    │\n"
+  echo -ne "│    Месяц .............. $mo    │\n"
+  echo -ne "│    День недели ........ 0$ww    │\n"
+  echo -ne "│    День в году ....... $dy    │\n"
+  echo -ne "│    Год .............. $yy    │\n"
+  echo -ne "└───────────────────────────────┘\n"
+}
+
+say_greet() {
+  echo "$p_now"
+  $player $opt_1 $path/$s_begin.$type
+}
+
+today() {
+  today=$path/$s_today.$type
+  echo -ne "$p_today "
+  $player $opt_3 $today
+}
+
+beep() {
+  echo "$p_beep"
+  $player $opt_1 $path/$s_beep.$type
+}
+
+signal() {
+  echo "$p_signal"
+  $player $opt_4 $path/$s_signal.$type
+}
+
+## Часы
+print_hour() {
+	hour_a=${hh:0:1}
+	hour_b=${hh:1}
+  if [[ $hour_a -ne 1 && $hour_b -eq 1 ]]; then
+    print_hour=$path/$s_hour.$type
+    p_hour="час"					# 01 21
+    echo "$hh $p_hour"
+  elif [[ $hour_a -ne 1 && $hour_b -eq 2 || $hour_a -ne 1 && $hour_b -eq 3 || $hour_a -ne 1 && $hour_b -eq 4 ]]; then
+    print_hour=$path/$s_hours_a.$type
+    p_hour="часа"					# 02 03 04 22 23
+    echo "$hh $p_hour"
+  else
+    print_hour=$path/$s_hours.$type
+    p_hour="часов"					# 00 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20
+    echo "$hh $p_hour"
+  fi
+  $ERREXIT
+}
+
+hours() {
+  if [ $hh -lt 21 ]; then
+    [ $hh -eq 0 ] && decode=0 || decode=`echo "$hh" | sed 's/^[0]*//'`
+    $player $opt_1 $path/$decode.$type $opt_2 $print_hour
+  else
+    hour_a=${hh:0:1}0
+    hour_b=${hh:1}
+    $player $opt_1 $path/$hour_a.$type $path/$hour_b.$type $opt_2 $print_hour
+  fi
+}
+
+## Минуты
+print_min() {
+	min_a=${mm:0:1}
+    min_b=${mm:1}
+  if [[ $min_a -ne 1 && $min_b -eq 1 ]]; then
+    print_min=$path/$s_min.$type
+    p_min="минута"
+    echo "$mm $p_min"
+  elif [[ $min_a -ne 1 && $min_b -eq 2 || $min_a -ne 1 && $min_b -eq 3 || $min_a -ne 1 && $min_b -eq 4 ]]; then
+    print_min=$path/$s_mins_i.$type
+    p_min="минуты"
+    echo "$mm $p_min"
+  else
+    print_min=$path/$s_mins.$type
+    p_min="минут"
+    echo "$mm $p_min"
+  fi
+  $ERREXIT
+}
+
+minutes() {
+  if [ $mm -lt 21 ]; then
+    if   [ $mm -eq 0 ]; then
+      decode=0
+    elif [ $mm -eq 1 ]; then
+      decode=1f
+    elif [ $mm -eq 2 ]; then
+      decode=2f
+    else
+      decode=`echo "$mm" | sed 's/^[0]*//'`
+    fi
+    $player $opt_1 $path/$decode.$type $opt_2 $print_min
+  else
+    min_a=${mm:0:1}0
+    min_b=${mm:1}
+    if   [[ $min_a -eq 00 && $min_b -eq 0 ]]; then
+      $player $opt_1 $path/$min_b.$type $opt_2 $print_min
+    elif [ $min_b -eq 0 ]; then
+      $player $opt_1 $path/$min_a.$type $opt_2 $print_min
+    elif [ $min_b -eq 1 ]; then
+      min_b=1f
+      $player $opt_1 $path/$min_a.$type $path/$min_b.$type $opt_2 $print_min
+    elif [ $min_b -eq 2 ]; then
+      min_b=2f
+      $player $opt_1 $path/$min_a.$type $path/$min_b.$type $opt_2 $print_min
+    else
+      $player $opt_1 $path/$min_a.$type $path/$min_b.$type $opt_2 $print_min
+    fi
+  fi
+}
+
+## Секунды
+print_sec() {
+	sec_a=${ss:0:1}
+    sec_b=${ss:1}
+  if [[ $sec_a -ne 1 && $sec_b -eq 1 ]]; then
+    print_sec=$path/$s_sec.$type
+    p_sec="секунда"
+  elif [[ $sec_a -ne 1 && $sec_b -eq 2 || $sec_a -ne 1 && $sec_b -eq 3 || $sec_a -ne 1 && $sec_b -eq 4 ]]; then
+    print_sec=$path/$s_secs_i.$type
+    p_sec="секунды"
+  else
+    print_sec=$path/$s_secs.$type
+    p_sec="секунд"
+  fi
+  echo "$ss $p_sec"
+  $ERREXIT
+}
+
+seconds() {
+  if [ $ss -lt 21 ]; then
+    if   [ $ss -eq 0 ]; then
+      decode=0
+    elif [ $ss -eq 1 ]; then
+      decode=1f
+    elif [ $ss -eq 2 ]; then
+      decode=2f
+    else
+      decode=`echo "$ss" | sed 's/^[0]*//'`
+    fi
+    $player $opt_1 $path/$decode.$type $opt_1 $print_sec
+  else
+    sec_a=${ss:0:1}0
+    sec_b=${ss:1}
+    if   [[ $sec_a -eq 00 && $sec_b -eq 0 ]]; then
+      $player $opt_1 $path/$sec_b.$type $opt_1 $print_sec
+    elif [ $sec_b -eq 0 ]; then
+      $player $opt_1 $path/$sec_a.$type $opt_1 $print_sec
+    elif [ $sec_b -eq 1 ]; then
+      sec_b=1f
+      $player $opt_1 $path/$sec_a.$type $path/$sec_b.$type $opt_1 $print_sec
+    elif [ $sec_b -eq 2 ]; then
+      sec_b=2f
+      $player $opt_1 $path/$sec_a.$type $path/$sec_b.$type $opt_1 $print_sec
+    else
+      $player $opt_1 $path/$sec_a.$type $path/$sec_b.$type $opt_1 $print_sec
+    fi
+  fi
+}
+
+week() {
+## Неделя (1..7)
+  #[ $ww -eq 0 ] && p_week=Воскресенье
+  [ $ww -eq 1 ] && p_week=Понедельник
+  [ $ww -eq 2 ] && p_week=Вторник
+  [ $ww -eq 3 ] && p_week=Среда
+  [ $ww -eq 4 ] && p_week=Четверг
+  [ $ww -eq 5 ] && p_week=Пятница
+  [ $ww -eq 6 ] && p_week=Суббота
+  [ $ww -eq 7 ] && p_week=Воскресенье
+  
+  [ $ww -eq 7 ] && ww=0
+  week=$path/day-$ww.$type
+
+  echo -ne "$p_week"
+  $player $opt_1 $week
+  echo
+}
+
+day() {
+## День (начиная с 01)
+  if [ $dd -lt 21 ]; then
+
+    [ $dd -eq 0 ] && dd=0 || dd=`echo "$dd" | sed 's/^[0]*//'`
+    day=$path/h-$dd"n".$type
+  else
+    day_a=${dd:0:1}0
+    day_b=${dd:1}
+    day=$path/h-$day_a"n".$type $path/h-$day_b"n".$type
+  fi
+  dy=`echo "$dy" | sed 's/^[0]*//'`
+
+## Месяц (01..12)
+  [ $mo -eq 01 ] && p_mon=Января
+  [ $mo -eq 02 ] && p_mon=Февраля
+  [ $mo -eq 03 ] && p_mon=Марта
+  [ $mo -eq 04 ] && p_mon=Апреля
+  [ $mo -eq 05 ] && p_mon=Мая
+  [ $mo -eq 06 ] && p_mon=Июня
+  [ $mo -eq 07 ] && p_mon=Июля
+  [ $mo -eq 08 ] && p_mon=Августа
+  [ $mo -eq 09 ] && p_mon=Сентября
+  [ $mo -eq 10 ] && p_mon=Октября
+  [ $mo -eq 11 ] && p_mon=Ноября
+  [ $mo -eq 12 ] && p_mon=Декабря
+
+  [ $mo -eq 0 ] && mo=0 || mo=`echo "$mo" | sed 's/^[0]*//'` mo=`expr $mo - 1`
+  month=$path/mon-$mo.$type
+
+echo -ne "$dd-е $p_mon $yy г."
+$player $opt_2 $day $month
+echo -ne "\nТакже это $dy-й день в году.\n"
+}
+###
+
+
+### Команды ###
+OPTSPEC=":bgsqidhv-:"
+while getopts "$OPTSPEC" optchar; do
+    case "${optchar}" in
+        -)
+            case "${OPTARG}" in
+            	beep)
+                    beep
+                    ;;
+                signal)
+                    signal
+                    ;;
+                greet)
+                    say_greet
+                    ;;
+                quiet)
+                    if [ "${2:2}" == "time" ]; then
+            	        print_hour && print_min
+                    elif [[ ${2:2} == "hour" || ${2:2} == "min" || ${2:2} == "sec" ]]; then
+                        print_${2:2}
+                    else
+                    	usage
+                    fi
+                    break
+                    ;;
+                hour)
+                    depends
+					[[ $(type mpc &>/dev/null) && -n "$(mpc current)" ]] && pause="mpc pause -q" play="mpc play -q"
+				   	$pause
+ 					print_hour && hours
+				   	$play
+                    ;;
+                min)
+                    depends
+   					print_min && minutes
+                    ;;
+                sec)
+                    depends
+   					print_sec && seconds
+                    ;;
+                time)
+                    depends
+   					print_hour && hours && print_min && minutes && break
+                    ;;
+                day)
+                    depends
+                    today && day
+                    ;;
+                dow)
+                    depends
+                    today && week
+                    ;;
+                date)
+                    depends
+   					today && week && day
+                    ;;
+                all)
+                    depends
+   					say_greet && print_hour && hours && print_min && minutes && today && week && day && break
+                    ;;
+            	deps)
+					print_dep
+					exit 1
+		            ;;
+		        info)
+            		print_info
+            		exit 1
+            		;;
+                help)
+                    print_help
+                    exit 1
+                    ;;
+                version)
+                    print_ver
+                    exit 1
+                    ;;
+                *)
+                    usage
+                    exit 1
+                    ;;
+            esac
+            ;;
+        b)
+            beep
+            ;;
+        s)
+            signal
+            ;;
+        g)
+            say_greet
+            ;;
+        q)
+            if [ "${2:2}" == "time" ]; then
+            	print_hour && print_min
+            elif [[ ${2:2} == "hour" || ${2:2} == "min" || ${2:2} == "sec" ]]; then
+                print_${2:2}
+            else
+            	usage
+            fi
+            break
+            ;;
+        i)
+            print_info
+            exit 1
+            ;;
+        d)
+            print_dep
+			exit 1
+            ;;
+        h)
+            print_help
+            exit 1
+            ;;
+        v)
+            print_version
+            exit 1
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+[ $# -eq 0 ] && usage && exit 1
+
+exit 0
