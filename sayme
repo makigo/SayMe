@@ -394,22 +394,22 @@ while getopts "$OPTSPEC" optchar; do
                     ;;
                 hour)
                     depends
-					[[ $(type mpc &>/dev/null) && -n "$(mpc current)" ]] && pause="mpc pause -q" play="mpc play -q"
-				   	$pause
- 					print_hour && hours
-				   	$play
+                    [[ $(type mpc &>/dev/null) && -n "$(mpc current)" ]] && pause="mpc pause -q" play="mpc play -q"
+                    $pause
+                    print_hour && hours
+                    $play
                     ;;
                 min)
                     depends
-   					print_min && minutes
+                    print_min && minutes
                     ;;
                 sec)
                     depends
-   					print_sec && seconds
+                    print_sec && seconds
                     ;;
                 time)
                     depends
-   					print_hour && hours && print_min && minutes && break
+                    print_hour && hours && print_min && minutes && break
                     ;;
                 day)
                     depends
@@ -421,20 +421,20 @@ while getopts "$OPTSPEC" optchar; do
                     ;;
                 date)
                     depends
-   					today && week && day
+                    today && week && day
                     ;;
                 all)
                     depends
-   					say_greet && print_hour && hours && print_min && minutes && today && week && day && break
+                    say_greet && print_hour && hours && print_min && minutes && today && week && day && break
                     ;;
             	deps)
-					print_dep
-					exit 1
-		            ;;
-		        info)
-            		print_info
-            		exit 1
-            		;;
+                    print_dep
+                    exit 1
+		    ;;
+                info)
+                    print_info
+                    exit 1
+                    ;;
                 help)
                     print_help
                     exit 1
@@ -474,7 +474,7 @@ while getopts "$OPTSPEC" optchar; do
             ;;
         d)
             print_dep
-			exit 1
+            exit 1
             ;;
         h)
             print_help
