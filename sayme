@@ -93,13 +93,12 @@ usage() {
 }
 
 print_version() {
-  echo "$NAME v$VERSION, Copyright (C) 2017, iMakgonin aka makigo. "
+  echo "$NAME v$VERSION, Copyright (C) 2017, iMakhonin aka makigo. "
 }
 
 print_help() {
   print_version
   echo "Использование: $APPNAME [КОМАНДА]..."
-  echo
   echo "Команды:"
   echo
   echo "  Голосовые:"
